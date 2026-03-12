@@ -26,6 +26,7 @@ class MarketDataDecoder:
             "UpdateOrderBooks": self._decode_update_order_books,
             "UpdateForeignerStats": self._decode_update_foreigner_stats,
             "UpdateSymbols": self._decode_update_symbols,
+            "UpdateTrades": self._decode_update_trades,
             # TODO: Register tick-data decoder here once the tick payload
             # structure is confirmed from live raw samples.
         }
@@ -60,7 +61,7 @@ class MarketDataDecoder:
         for invocation in invocations:
             command_name = invocation[3].decode("ascii", "ignore")
             payload = invocation[4] if len(invocation) > 4 else []
-            records = payload[0] if payload and isinstance(payload, list) and payload[0] else []
+            records = self._extract_records(command_name, payload)
 
             decoder = self._decoders.get(command_name)
             if not decoder:
@@ -138,7 +139,7 @@ class MarketDataDecoder:
             log_data("Payload decode error", f"{command_name}: {exc}", symbol)
             return []
 
-        records = first_obj[0] if isinstance(first_obj, list) and first_obj and isinstance(first_obj[0], list) else []
+        records = self._extract_records(command_name, first_obj)
         decoder = self._decoders.get(command_name)
         if not decoder:
             return []
@@ -150,6 +151,22 @@ class MarketDataDecoder:
             except Exception as exc:
                 log_data("Decode record error", f"{command_name}: {exc}", symbol)
         return normalized_records
+
+    def _extract_records(self, command_name: str, payload):
+        if not isinstance(payload, list) or not payload:
+            return []
+
+        if command_name == "UpdateTrades":
+            # Confirmed sample shape:
+            # [b"FPT", [[trade_id, event_time, price, volume, side, trading_date]]]
+            if len(payload) >= 2 and isinstance(payload[1], list):
+                symbol = payload[0]
+                return [[symbol, *record] for record in payload[1] if isinstance(record, list)]
+            return []
+
+        if isinstance(payload[0], list):
+            return payload[0]
+        return []
 
     def _decode_update_last_prices(self, record):
         # Confirmed mapping from live samples:
@@ -245,6 +262,17 @@ class MarketDataDecoder:
             "industry_code": self._decode_text(record[18]),
         }
 
+    def _decode_update_trades(self, record):
+        return {
+            "symbol": self._decode_symbol(record[0]),
+            "trade_id": int(record[1]) if record[1] is not None else None,
+            "event_time": self._to_iso_z(record[2]),
+            "price": self._to_price(record[3]),
+            "volume": self._to_clean_number(record[4]),
+            "side": self._decode_text(record[5]),
+            "trading_date": self._to_date(record[6]),
+        }
+
     def _decode_book_level(self, level):
         return {
             "price": self._to_float(level[0]),
@@ -271,3 +299,35 @@ class MarketDataDecoder:
             ts = value.seconds + (value.nanoseconds / 1_000_000_000)
             return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
         return value
+
+    def _to_date(self, value):
+        iso_value = self._to_iso(value)
+        if isinstance(iso_value, str):
+            return iso_value[:10]
+        return iso_value
+
+    def _to_iso_z(self, value):
+        iso_value = self._to_iso(value)
+        if isinstance(iso_value, str) and iso_value.endswith("+00:00"):
+            return iso_value[:-6] + "Z"
+        return iso_value
+
+    def _to_clean_number(self, value):
+        number = self._to_float(value)
+        if number is None:
+            return None
+
+        rounded = round(number, 6)
+        if float(rounded).is_integer():
+            return int(rounded)
+        return rounded
+
+    def _to_price(self, value):
+        number = self._to_float(value)
+        if number is None:
+            return None
+
+        rounded = round(number, 3)
+        if float(rounded).is_integer():
+            return int(rounded)
+        return rounded
