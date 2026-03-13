@@ -4,6 +4,7 @@ import time
 import ssl
 import websocket
 
+from config_loader import build_subscribe_trades_command_base64
 from parser.message_router import route_binary_message
 from settings import PING_INTERVAL_SEC, PING_TIMEOUT_SEC, RECONNECT_DELAY_SEC, RS, WS_URL
 from utils.logging_utils import log_data, log_step
@@ -17,7 +18,9 @@ class SymbolSession:
     def __init__(self, symbol: str, command_b64: str):
         self.symbol = symbol
         self.command_b64 = command_b64
-        self.command_raw = decode_command_b64(command_b64)
+        self.quotes_command_raw = decode_command_b64(command_b64)
+        self.trades_command_b64 = build_subscribe_trades_command_base64(symbol)
+        self.trades_command_raw = decode_command_b64(self.trades_command_b64)
 
     def create_app(self):
         ws = websocket.WebSocketApp(
@@ -80,8 +83,12 @@ class SymbolSession:
         log_data("Reason", reason, self.symbol)
 
     def send_subscribe_command(self, ws):
-        log_step("Send subscribe command", self.symbol)
-        ws.send(self.command_raw, opcode=websocket.ABNF.OPCODE_BINARY)
+        log_step("Send subscribe quotes command", self.symbol)
+        ws.send(self.quotes_command_raw, opcode=websocket.ABNF.OPCODE_BINARY)
+        log_step("Subscribe quotes completed", self.symbol)
+
+        log_step("Send subscribe trades command", self.symbol)
+        ws.send(self.trades_command_raw, opcode=websocket.ABNF.OPCODE_BINARY)
         ws.subscribed = True
         log_step("Subscribe completed", self.symbol)
 
