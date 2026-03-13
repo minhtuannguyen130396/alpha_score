@@ -1,0 +1,263 @@
+Bạn đang đọc dữ liệu đầu vào của 1 mã chứng khoán trong thư mục có cấu trúc:
+
+data_ingestion/data/{symbol}/
+
+Trong đó `{symbol}` là mã cổ phiếu, ví dụ: `CTG`.
+
+Mục tiêu của bạn ở bước này chỉ là:
+1. Đọc đúng toàn bộ dữ liệu input.
+2. Hiểu rõ cấu trúc thư mục, định dạng file, schema từng nhóm dữ liệu.
+3. Hiểu ý nghĩa nghiệp vụ cơ bản của từng trường.
+4. Không suy diễn thêm ngoài dữ liệu nếu chưa có căn cứ chắc chắn.
+5. Không làm phân tích, dự báo, feature engineering, training hay output business insight ở bước này.
+
+====================
+1. CẤU TRÚC THƯ MỤC
+====================
+
+Mỗi mã `{symbol}` thường có các nhóm dữ liệu sau:
+
+- `historical_price/`
+- `updateforeignerstats/`
+- `updatelastprices/`
+- `updateorderbooks/`
+- `updaterefprices/`
+- `updatetrades/`
+
+Ý nghĩa tổng quát:
+
+- `historical_price`: dữ liệu lịch sử theo ngày giao dịch, lưu theo file tháng.
+- `updateforeignerstats`: log cập nhật theo thời gian thực hoặc gần thời gian thực về giao dịch khối ngoại.
+- `updatelastprices`: log cập nhật giá khớp gần nhất và volume tích lũy trong ngày.
+- `updateorderbooks`: log cập nhật sổ lệnh (bid/ask levels).
+- `updaterefprices`: log cập nhật giá tham chiếu, trần, sàn, open/high/low và trạng thái thị trường.
+- `updatetrades`: log từng giao dịch khớp lệnh.
+
+====================
+2. QUY TẮC FILE / ĐỊNH DẠNG
+====================
+
+Có 2 kiểu file chính:
+
+A. `historical_price`
+- File nằm trực tiếp trong folder:
+  `historical_price/YYYY-MM-01.json`
+- Mỗi file là 1 `JSON array`.
+- Mỗi phần tử trong array là 1 bản ghi dữ liệu ngày giao dịch.
+- 1 file thường đại diện cho 1 tháng dữ liệu.
+- Thứ tự bản ghi trong file có thể là mới đến cũ, không được mặc định là tăng dần theo ngày.
+
+B. Các folder `update*`
+- Cấu trúc thường là:
+  `updatexxx/YYYY/YYYY-MM-DD.json`
+- Mỗi file là `NDJSON / JSON Lines`, tức:
+  mỗi dòng là 1 JSON object độc lập.
+- Không được parse cả file như 1 JSON array chuẩn.
+- Phải đọc theo từng dòng.
+- Mỗi dòng là 1 event tại một thời điểm trong ngày.
+
+====================
+3. SCHEMA CHI TIẾT TỪNG NHÓM DỮ LIỆU
+====================
+
+--------------------------------
+3.1. historical_price
+--------------------------------
+
+Mỗi phần tử trong JSON array có các trường:
+
+- `date`: ngày giao dịch.
+- `symbol`: mã cổ phiếu.
+- `priceHigh`: giá cao nhất ngày.
+- `priceLow`: giá thấp nhất ngày.
+- `priceOpen`: giá mở cửa.
+- `priceAverage`: giá trung bình.
+- `priceClose`: giá đóng cửa.
+- `priceBasic`: giá cơ sở / giá tham chiếu của ngày.
+- `totalVolume`: tổng khối lượng giao dịch.
+- `dealVolume`: khối lượng khớp lệnh.
+- `putthroughVolume`: khối lượng thỏa thuận.
+- `totalValue`: tổng giá trị giao dịch.
+- `putthroughValue`: giá trị giao dịch thỏa thuận.
+- `buyForeignQuantity`: khối lượng mua của nhà đầu tư nước ngoài.
+- `buyForeignValue`: giá trị mua của nhà đầu tư nước ngoài.
+- `sellForeignQuantity`: khối lượng bán của nhà đầu tư nước ngoài.
+- `sellForeignValue`: giá trị bán của nhà đầu tư nước ngoài.
+- `buyCount`: số lệnh mua.
+- `buyQuantity`: tổng khối lượng đặt mua.
+- `sellCount`: số lệnh bán.
+- `sellQuantity`: tổng khối lượng đặt bán.
+- `adjRatio`: hệ số điều chỉnh.
+- `currentForeignRoom`: room ngoại còn lại / room hiện tại.
+- `propTradingNetDealValue`: giá trị tự doanh ròng khớp lệnh.
+- `propTradingNetPTValue`: giá trị tự doanh ròng thỏa thuận.
+- `propTradingNetValue`: tổng giá trị tự doanh ròng.
+- `unit`: đơn vị quy đổi giá.
+
+Lưu ý:
+- Một số trường có thể `null`, ví dụ các trường tự doanh.
+- `unit` xuất hiện là `1000`; suy luận hợp lý là giá được biểu diễn theo đơn vị nghìn VND, nhưng nếu cần tính toán chính xác thì vẫn phải giữ nguyên dữ liệu gốc và ghi chú đây là suy luận từ mẫu.
+- `totalValue` có vẻ là giá trị tiền giao dịch thực tế, không nên tự chia hay nhân thêm nếu chưa xác nhận rule chuẩn của hệ thống nguồn.
+
+--------------------------------
+3.2. updateforeignerstats
+--------------------------------
+
+Mỗi dòng là 1 JSON object với các trường:
+
+- `ts`: thời điểm hệ thống ghi nhận / ingest event.
+- `command`: tên event, ví dụ `UpdateForeignerStats`.
+- `symbol`: mã cổ phiếu.
+- `event_time`: thời điểm sự kiện từ nguồn market data.
+- `net_volume`: room ngoại hoặc số dư ngoại ròng hiện thời theo feed nguồn.
+- `buy_volume`: tổng khối lượng mua của khối ngoại tại thời điểm event.
+- `sell_volume`: tổng khối lượng bán của khối ngoại tại thời điểm event.
+- `buy_value`: tổng giá trị mua của khối ngoại tại thời điểm event.
+- `sell_value`: tổng giá trị bán của khối ngoại tại thời điểm event.
+
+Lưu ý:
+- Đây là dữ liệu log cập nhật theo thời gian, không phải snapshot cuối ngày duy nhất.
+- Các record sau thường ghi đè trạng thái mới hơn của cùng ngày.
+- Không được cộng dồn mù quáng tất cả các dòng, vì nhiều dòng là trạng thái cập nhật lặp lại theo timeline.
+
+--------------------------------
+3.3. updatelastprices
+--------------------------------
+
+Mỗi dòng gồm:
+
+- `ts`: thời điểm ingest.
+- `command`: ví dụ `UpdateLastPrices`.
+- `symbol`: mã cổ phiếu.
+- `event_time`: thời điểm event từ nguồn.
+- `last_price`: giá khớp gần nhất.
+- `last_volume`: khối lượng của giao dịch gần nhất.
+- `total_volume`: tổng khối lượng khớp lũy kế trong ngày tại thời điểm event.
+- `total_value`: tổng giá trị giao dịch lũy kế trong ngày tại thời điểm event.
+- `matched_price`: giá khớp hiện tại / giá matched.
+- `active_buy_volume`: khối lượng khớp chủ động mua lũy kế.
+- `active_sell_volume`: khối lượng khớp chủ động bán lũy kế.
+- `total_buy_sale_volume`: tổng khối lượng active buy + active sell.
+
+Lưu ý:
+- Đây là chuỗi event intraday.
+- `total_volume` và `total_value` là lũy kế trong ngày, không được cộng dồn qua các record.
+- Muốn lấy snapshot cuối ngày thì ưu tiên record cuối cùng theo thời gian.
+
+--------------------------------
+3.4. updateorderbooks
+--------------------------------
+
+Mỗi dòng gồm:
+
+- `ts`: thời điểm ingest.
+- `command`: ví dụ `UpdateOrderBooks`.
+- `symbol`: mã cổ phiếu.
+- `event_time`: thời điểm event từ nguồn.
+- `total_bid_volume`: tổng volume bên mua.
+- `total_ask_volume`: tổng volume bên bán.
+- `bid_levels`: mảng các mức giá mua tốt nhất.
+- `ask_levels`: mảng các mức giá bán tốt nhất.
+
+Mỗi phần tử trong `bid_levels` hoặc `ask_levels` có:
+- `price`: mức giá.
+- `volume`: khối lượng tại mức giá đó.
+
+Lưu ý:
+- Trong mẫu CTG, `bid_levels` và `ask_levels` đang có 3 mức giá tốt nhất.
+- Không được giả định số level luôn cố định nếu áp dụng cho symbol khác hoặc nguồn khác.
+- `total_bid_volume` và `total_ask_volume` trong mẫu có thể bằng `0`; không được tự kết luận là dữ liệu lỗi, cần giữ nguyên và xem đây là giá trị raw từ feed.
+
+--------------------------------
+3.5. updaterefprices
+--------------------------------
+
+Mỗi dòng gồm:
+
+- `ts`: thời điểm ingest.
+- `command`: ví dụ `UpdateRefPrices`.
+- `symbol`: mã cổ phiếu.
+- `event_time`: thời điểm event từ nguồn.
+- `reference_price`: giá tham chiếu.
+- `ceiling_price`: giá trần.
+- `floor_price`: giá sàn.
+- `open_price`: giá mở cửa.
+- `high_price`: giá cao nhất trong ngày tại thời điểm event.
+- `low_price`: giá thấp nhất trong ngày tại thời điểm event.
+- `market_status`: mã trạng thái thị trường.
+- `trading_date`: ngày giao dịch.
+
+Lưu ý:
+- `market_status` là mã số trạng thái, chưa có mapping enum trong dữ liệu mẫu, vì vậy phải giữ nguyên raw value, không tự diễn giải.
+- Các giá trong nhóm này là snapshot trạng thái tham chiếu/thị trường tại thời điểm event.
+
+--------------------------------
+3.6. updatetrades
+--------------------------------
+
+Mỗi dòng gồm:
+
+- `ts`: thời điểm ingest.
+- `command`: ví dụ `UpdateTrades`.
+- `symbol`: mã cổ phiếu.
+- `trade_id`: mã giao dịch.
+- `event_time`: thời điểm khớp lệnh.
+- `price`: giá khớp.
+- `volume`: khối lượng khớp.
+- `side`: phía giao dịch, có thể là `B`, `S`, hoặc `null`.
+- `trading_date`: ngày giao dịch.
+
+Lưu ý:
+- Đây là dữ liệu transaction-level, mỗi dòng là 1 trade event.
+- `trade_id` nên được xem là khóa nhận diện giao dịch.
+- `side` có thể bị thiếu (`null`) trong một số bản ghi, không được ép buộc luôn có giá trị.
+- Không được coi mọi trade đều có đầy đủ metadata phân loại.
+
+====================
+4. QUY TẮC HIỂU THỜI GIAN
+====================
+
+Cần phân biệt rõ các trường thời gian:
+
+- `ts`: thời điểm hệ thống ghi log/ingest.
+- `event_time`: thời điểm sự kiện từ nguồn dữ liệu thị trường.
+- `date` hoặc `trading_date`: ngày giao dịch.
+
+Lưu ý:
+- `event_time` trong các file realtime thường có timezone UTC (`Z` hoặc `+00:00`).
+- `ts` trong mẫu có dạng ISO datetime nhưng không luôn kèm timezone.
+- Không được mặc định `ts == event_time`.
+- Khi cần sắp xếp timeline intraday, ưu tiên dùng `event_time`, dùng `ts` như thời điểm ghi nhận kỹ thuật.
+
+====================
+5. QUY TẮC ĐỌC ĐÚNG DỮ LIỆU
+====================
+
+Khi đọc input, phải tuân thủ:
+
+- Xác định đúng loại file trước khi parse:
+  - `historical_price/*.json` => JSON array.
+  - `update*/*.json` => NDJSON, đọc từng dòng.
+- Không cộng dồn các bản ghi snapshot intraday như thể mỗi dòng là dữ liệu độc lập cộng được.
+- Không tự suy diễn các trường enum hay trường business chưa có mapping chính thức.
+- Giữ nguyên tên field gốc khi mô tả hoặc parse.
+- Chấp nhận `null`, đặc biệt ở các trường như `propTradingNetValue` hoặc `side`.
+- Không giả định dữ liệu đã được sort.
+- Không giả định tất cả folder đều có đủ dữ liệu cho mọi năm/ngày.
+- Không giả định mọi file realtime đều có cùng số dòng.
+- Với dữ liệu order book, không giả định số level luôn cố định ngoài mẫu đang thấy.
+- Với dữ liệu historical, mỗi record là dữ liệu tổng hợp theo ngày; với dữ liệu `update*`, mỗi record là 1 event theo thời gian trong ngày.
+
+====================
+6. OUTPUT MONG MUỐN Ở BƯỚC HIỂU INPUT
+====================
+
+Sau khi đọc dữ liệu, bạn phải hiểu được:
+
+- Mỗi symbol có nhiều nhóm dữ liệu bổ sung cho nhau.
+- `historical_price` là daily aggregate.
+- `updateforeignerstats`, `updatelastprices`, `updateorderbooks`, `updaterefprices`, `updatetrades` là intraday event logs.
+- Dữ liệu intraday cần được đọc như chuỗi trạng thái/sự kiện theo thời gian, không phải bảng daily aggregate.
+- Một số trường là snapshot lũy kế, một số trường là event-level, và một số trường là trạng thái thị trường.
+
+Ở bước này, chỉ cần đọc đúng, parse đúng, hiểu đúng cấu trúc và ý nghĩa dữ liệu đầu vào. Không làm thêm bất kỳ tác vụ phân tích nào khác.
