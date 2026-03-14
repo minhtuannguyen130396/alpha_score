@@ -17,7 +17,7 @@ HEADERS = {
     "Accept": "application/json",
 }
 IS_WEEKLY_FETCH = True
-DATE_START_FETCH = "2024-01-01"
+DATE_START_FETCH = "2026-01-01"
 LIST_VN_30 = BASE_DIR / "stock_vn_30.txt"
 HISTORICAL_PRICE_DIRNAME = "historical_price"
 REQUEST_TIMEOUT_SEC = 30
@@ -54,8 +54,8 @@ def first_day_of_next_month(value: date) -> date:
     return date(value.year, value.month + 1, 1)
 
 
-def build_output_path(symbol: str, fetch_date: date) -> Path:
-    return DATA_ROOT / symbol / HISTORICAL_PRICE_DIRNAME / f"{fetch_date.isoformat()}.json"
+def build_output_path(symbol: str, record_date: date) -> Path:
+    return DATA_ROOT / symbol / HISTORICAL_PRICE_DIRNAME / f"{record_date.isoformat()}.json"
 
 
 def fetch_symbol_data(symbol: str, start_date: date, end_date: date):
@@ -73,12 +73,19 @@ def fetch_symbol_data(symbol: str, start_date: date, end_date: date):
     return response.json()
 
 
-def save_symbol_data(symbol: str, fetch_date: date, data) -> Path:
-    output_path = build_output_path(symbol, fetch_date)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as handle:
-        json.dump(data, handle, ensure_ascii=False, indent=2)
-    return output_path
+def save_symbol_data(symbol: str, data) -> list[Path]:
+    saved_paths: list[Path] = []
+
+    records = data if isinstance(data, list) else [data]
+    for record in records:
+        record_date = datetime.strptime(record["date"], "%Y-%m-%dT%H:%M:%S").date()
+        output_path = build_output_path(symbol, record_date)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as handle:
+            json.dump(record, handle, ensure_ascii=False, indent=2)
+        saved_paths.append(output_path)
+
+    return saved_paths
 
 
 def fetch_all_data(run_date: date | None = None):
@@ -99,8 +106,8 @@ def fetch_all_data(run_date: date | None = None):
 
             print(f"Fetching {symbol}: {current} -> {end_date}")
             data = fetch_symbol_data(symbol, current, end_date)
-            saved_path = save_symbol_data(symbol, current, data)
-            print(f"Saved {symbol} to {saved_path}")
+            saved_paths = save_symbol_data(symbol, data)
+            print(f"Saved {symbol} to {len(saved_paths)} daily files")
 
             if IS_WEEKLY_FETCH:
                 current = first_day_of_next_month(current)
