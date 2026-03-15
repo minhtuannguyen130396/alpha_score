@@ -17,7 +17,7 @@ HEADERS = {
     "Accept": "application/json",
 }
 IS_WEEKLY_FETCH = True
-DATE_START_FETCH = "2026-01-01"
+DATE_START_FETCH = "2025-01-01"
 LIST_VN_30 = BASE_DIR / "stock_vn_30.txt"
 HISTORICAL_PRICE_DIRNAME = "historical_price"
 REQUEST_TIMEOUT_SEC = 30
@@ -55,7 +55,8 @@ def first_day_of_next_month(value: date) -> date:
 
 
 def build_output_path(symbol: str, record_date: date) -> Path:
-    return DATA_ROOT / symbol / HISTORICAL_PRICE_DIRNAME / f"{record_date.isoformat()}.json"
+    year = str(record_date.year)
+    return DATA_ROOT / symbol / HISTORICAL_PRICE_DIRNAME / year / f"{record_date.isoformat()}.json"
 
 
 def fetch_symbol_data(symbol: str, start_date: date, end_date: date):
