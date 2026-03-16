@@ -131,7 +131,7 @@ Phase này nhận đúng 4 raw source groups:
 - Với `historical_price`, input mục tiêu của Layer 2 được coi là **1 JSON object / 1 ngày / 1 symbol**. Các dạng file legacy chứa nhiều object theo tháng không thuộc input target của kiến trúc mới.
 - Với 3 nguồn intraday, parse record raw nhưng **giữ nguyên field observed**.
 - Dùng `event_time` làm market time, parse từ UTC rồi đổi sang `UTC+7`.
-- Loại toàn bộ record intraday có `event_time` ngoài khoảng `09:00` đến `14:45` theo giờ `UTC+7`.
+- Loại toàn bộ record intraday có `event_time` ngoài hai cửa sổ `09:00-11:30` và `13:00-14:45` theo giờ `UTC+7`.
 - `ts` không dùng để quyết định session; `ts` chỉ là ingest/save time.
 - Không suy ra full depth từ `total_bid_volume` và `total_ask_volume` vì dữ liệu quan sát thực tế hiện tại luôn là `0.0`.
 - Không ép `updatetrades.side` luôn có giá trị vì field này có thể là `B`, `S`, hoặc `null`.

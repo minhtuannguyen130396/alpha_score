@@ -1,5 +1,5 @@
 from parser.update_parser import MarketDataDecoder
-from storage.writer import save_parsed, save_raw
+from storage.writer import save_parsed
 from utils.logging_utils import log_data
 
 DECODER = MarketDataDecoder()
@@ -21,7 +21,6 @@ def _filter_records_for_symbol(symbol: str, command_name: str, records):
 
 
 def route_binary_message(symbol: str, msg_bytes: bytes) -> None:
-    save_raw(symbol, msg_bytes)
     try:
         # One raw frame can contain many supported patterns, so decode first
         # and then persist each normalized pattern independently.

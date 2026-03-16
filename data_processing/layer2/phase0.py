@@ -20,6 +20,8 @@ BUNDLE_FOLDER = "phase0_raw_source_intake"
 LOG_FOLDER = "phase0_raw_source_intake_logs"
 LOCAL_TRADING_TZ = timezone(timedelta(hours=7))
 SESSION_START_LOCAL = dt_time(hour=9, minute=0)
+LUNCH_BREAK_START_LOCAL = dt_time(hour=11, minute=30)
+LUNCH_BREAK_END_LOCAL = dt_time(hour=13, minute=0)
 SESSION_END_LOCAL = dt_time(hour=14, minute=45)
 
 
@@ -159,7 +161,9 @@ def is_record_in_local_session(event_time_value: Any) -> bool:
         return False
 
     current_time = local_event_time.time().replace(tzinfo=None)
-    return SESSION_START_LOCAL <= current_time <= SESSION_END_LOCAL
+    in_morning_session = SESSION_START_LOCAL <= current_time < LUNCH_BREAK_START_LOCAL
+    in_afternoon_session = LUNCH_BREAK_END_LOCAL <= current_time <= SESSION_END_LOCAL
+    return in_morning_session or in_afternoon_session
 
 
 def output_bundle_path(output_root: Path, symbol: str, trading_date: str) -> Path:
@@ -474,6 +478,10 @@ class Phase0RawSourceIntakeProcess:
             "symbol": symbol,
             "trading_date": trading_date,
             "generated_at_utc": utc_now_iso(),
+            "session_filter_local": {
+                "timezone": "UTC+07:00",
+                "allowed_windows": ["09:00-11:29:59.999999", "13:00-14:45:00"]
+            },
             "is_complete": all(source_group_status.values()),
             "has_intraday_records": has_intraday_records,
             "source_group_status": source_group_status,
