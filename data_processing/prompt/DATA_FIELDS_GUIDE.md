@@ -68,11 +68,11 @@ Quy ước tên folder thực tế:
 | `command` | Tên command nguồn. | Luôn là `UpdateLastPrices`. |
 | `symbol` | Mã cổ phiếu. | Khớp tên folder symbol. |
 | `event_time` | Thời điểm sự kiện thị trường từ source. | Có timezone `+00:00`. |
-| `last_price` | Giá khớp mới nhất tại thời điểm snapshot. | Quan sát hiện tại luôn bằng `matched_price`. |
+| `last_price` | Giá khớp mới nhất tại thời điểm snapshot. | Đây là trường giá khớp intraday được pipeline sử dụng. |
 | `last_volume` | Khối lượng của lần khớp mới nhất. | Là khối lượng incremental của trade cuối cùng, không phải lũy kế ngày. |
 | `deal_volume` | Khối lượng khớp lệnh lũy kế trong ngày đến `event_time`. | Khớp cuối ngày với `historical_price.dealVolume`. |
 | `deal_value` | Giá trị khớp lệnh lũy kế trong ngày đến `event_time`. | Xấp xỉ phần khớp lệnh của daily snapshot. |
-| `matched_price` | Giá khớp tại snapshot. | Quan sát hiện tại trùng `last_price`. |
+| `matched_price` | Trường giá khớp phụ từ feed gốc. | Pipeline hiện tại bỏ qua trường này vì có case lệch so với `last_price`. |
 | `active_buy_volume` | Khối lượng mua chủ động lũy kế. | Cộng với `active_sell_volume` ra `deal_volume`. |
 | `active_sell_volume` | Khối lượng bán chủ động lũy kế. | Cộng với `active_buy_volume` ra `deal_volume`. |
 | `total_buy_sale_volume` | Tổng khối lượng buy/sell chủ động lũy kế. | Quan sát hiện tại bằng `deal_volume`. |
@@ -80,8 +80,6 @@ Quy ước tên folder thực tế:
 ### Quan hệ quan sát được trong `updatelastprices`
 
 - `deal_volume = active_buy_volume + active_sell_volume`
-  Đúng trên toàn bộ `39,989` record đã quét.
-- `last_price = matched_price`
   Đúng trên toàn bộ `39,989` record đã quét.
 - `deal_value / deal_volume / 1000`
   Là giá khớp bình quân lũy kế tới thời điểm snapshot; thường khác `last_price` vì đây là bình quân tích lũy.
@@ -135,7 +133,7 @@ Quy ước tên folder thực tế:
 
 - Cùng symbol và cùng ngày, snapshot cuối ngày của `updatelastprices.deal_volume` khớp `historical_price.dealVolume`.
   Kiểm tra trên `30/30` symbol ngày `2026-03-13`.
-- Cùng symbol và cùng ngày, snapshot cuối ngày của `updatelastprices.last_price`/`matched_price` khớp `historical_price.priceClose` trong sai số float.
+- Cùng symbol và cùng ngày, snapshot cuối ngày của `updatelastprices.last_price` khớp `historical_price.priceClose` trong sai số float.
   Kiểm tra trên `30/30` symbol ngày `2026-03-13`.
 - Cùng symbol và cùng ngày:
   `historical_price.totalValue - historical_price.putthroughValue ~= updatelastprices.deal_value`

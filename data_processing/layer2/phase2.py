@@ -331,7 +331,6 @@ class Phase2InputValidationProcess:
             self._validate_daily_volume_balance(normalized_daily_input),
             self._validate_daily_average_price(normalized_daily_input),
             self._validate_daily_prop_net_balance(normalized_daily_input),
-            self._validate_intraday_last_price_match(intraday_records),
             self._validate_intraday_deal_volume_balance(intraday_records),
             self._validate_orderbook_top3_shape(orderbook_records),
             self._validate_orderbook_total_depth_usability(orderbook_records),
@@ -563,48 +562,6 @@ class Phase2InputValidationProcess:
             pass_count=1 if status == "pass" else 0,
             fail_count=1 if status == "fail" else 0,
             details={"actual": actual, "expected": expected, "abs_diff": abs(diff)},
-        )
-
-    def _validate_intraday_last_price_match(self, records: list[dict[str, Any]]) -> dict[str, Any]:
-        checked_count = 0
-        fail_count = 0
-        examples: list[dict[str, Any]] = []
-        max_abs_diff = 0.0
-
-        for record in records:
-            last_price = record.get("last_price")
-            matched_price = record.get("matched_price")
-            if last_price is None or matched_price is None:
-                continue
-
-            checked_count += 1
-            abs_diff = abs(float(last_price) - float(matched_price))
-            max_abs_diff = max(max_abs_diff, abs_diff)
-            if not approx_equal(last_price, matched_price, abs_tol=0.001):
-                fail_count += 1
-                if len(examples) < 5:
-                    examples.append(
-                        {
-                            "source_sequence": record.get("source_sequence"),
-                            "event_time_utc": record.get("event_time_utc"),
-                            "last_price": last_price,
-                            "matched_price": matched_price,
-                            "abs_diff": abs_diff,
-                        }
-                    )
-
-        if checked_count == 0:
-            return make_rule_result("last_price_equals_matched_price", "intraday", "skip", 0)
-
-        status = "pass" if fail_count == 0 else "fail"
-        return make_rule_result(
-            "last_price_equals_matched_price",
-            "intraday",
-            status,
-            checked_count=checked_count,
-            pass_count=checked_count - fail_count,
-            fail_count=fail_count,
-            details={"max_abs_diff": max_abs_diff, "examples": examples},
         )
 
     def _validate_intraday_deal_volume_balance(self, records: list[dict[str, Any]]) -> dict[str, Any]:

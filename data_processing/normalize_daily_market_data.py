@@ -108,7 +108,6 @@ def normalize_last_price_record(record, source_file):
         "last_volume": record.get("last_volume"),
         "total_volume": record.get("total_volume"),
         "total_value": record.get("total_value"),
-        "matched_price": record.get("matched_price"),
         "active_buy_volume": record.get("active_buy_volume"),
         "active_sell_volume": record.get("active_sell_volume"),
         "total_buy_sale_volume": record.get("total_buy_sale_volume"),

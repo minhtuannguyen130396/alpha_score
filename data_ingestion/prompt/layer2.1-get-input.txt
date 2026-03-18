@@ -134,7 +134,6 @@ Mỗi dòng gồm:
 - `last_volume`: khối lượng của giao dịch gần nhất.
 - `total_volume`: tổng khối lượng khớp lũy kế trong ngày tại thời điểm event.
 - `total_value`: tổng giá trị giao dịch lũy kế trong ngày tại thời điểm event.
-- `matched_price`: giá khớp hiện tại / giá matched.
 - `active_buy_volume`: khối lượng khớp chủ động mua lũy kế.
 - `active_sell_volume`: khối lượng khớp chủ động bán lũy kế.
 - `total_buy_sale_volume`: tổng khối lượng active buy + active sell.

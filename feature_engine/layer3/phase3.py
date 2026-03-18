@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import traceback
+from datetime import datetime
 from datetime import time as time_value
 from pathlib import Path
 from statistics import fmean
@@ -168,10 +169,12 @@ class Phase3FeatureStoreProcess:
         self,
         output_root: Path | None = None,
         daily_history_root: Path | None = None,
+        include_today_after_local_hour: int = 18,
         symbols: set[str] | None = None,
     ) -> None:
         self.output_root = Path(output_root) if output_root else default_output_root()
         self.daily_history_root = Path(daily_history_root) if daily_history_root else default_daily_history_root()
+        self.include_today_after_local_hour = max(0, min(int(include_today_after_local_hour), 23))
         self.symbols = {symbol.upper() for symbol in symbols} if symbols else None
         self._input_cache: dict[str, CachedBundleFile] = {}
         self._first_scan = True
@@ -261,7 +264,18 @@ class Phase3FeatureStoreProcess:
             raise ValueError(f"phase2 frame mismatch for {symbol} {trading_date}")
 
         daily_history, history_paths = self._load_history(symbol)
-        lookback_bars = [bar for bar in daily_history if bar.get("date") < trading_date]
+        local_now = datetime.now().astimezone()
+        include_today_bar = (
+            local_now.strftime("%Y-%m-%d") > trading_date
+            or (
+                local_now.strftime("%Y-%m-%d") == trading_date
+                and local_now.timetz().replace(tzinfo=None) >= time_value(self.include_today_after_local_hour, 0)
+            )
+        )
+        if include_today_bar:
+            lookback_bars = [bar for bar in daily_history if bar.get("date") <= trading_date]
+        else:
+            lookback_bars = [bar for bar in daily_history if bar.get("date") < trading_date]
         closes = [to_float(bar.get("close")) for bar in lookback_bars if to_float(bar.get("close")) is not None]
         closes = [value for value in closes if value is not None]
         volumes = [to_float(bar.get("volume")) for bar in lookback_bars if to_float(bar.get("volume")) is not None]
@@ -288,7 +302,11 @@ class Phase3FeatureStoreProcess:
         ma20_slope_5d = safe_div((ma20_current - ma20_5d_ago) if ma20_current is not None and ma20_5d_ago is not None else None, ma20_5d_ago)
         ma20_ma200_ratio = safe_div(ma_20, ma_200)
 
-        previous_bar = lookback_bars[-1] if lookback_bars else None
+        previous_bar = None
+        for bar in reversed(daily_history):
+            if bar.get("date") < trading_date:
+                previous_bar = bar
+                break
         previous_close = to_float(previous_bar.get("close")) if isinstance(previous_bar, dict) else None
         daily_context = None
         if market_state_frames:
@@ -401,7 +419,7 @@ class Phase3FeatureStoreProcess:
             "source_bundle_generated_at_utc": payload.get("generated_at_utc"),
             "source_layer3_input_bundle_path": payload.get("source_layer3_input_bundle_path"),
             "formula_notes": {
-                "daily_technical_inputs": "daily technical indicators are computed from data_ingestion historical_price strictly before trading_date",
+                "daily_technical_inputs": "daily technical indicators are computed from data_ingestion historical_price before trading_date, except the current day is included once local machine time passes the configured cutoff hour",
                 "foreign_net_fields": "only populated after 14:45 local to avoid intraday future leakage",
                 "price_to_ma": "current_price / moving_average",
                 "relative_volume_day": "cum_volume / avg_volume_20d",
@@ -413,6 +431,9 @@ class Phase3FeatureStoreProcess:
                 "source_file_count": len(history_paths),
                 "available_history_days": len(daily_history),
                 "available_pre_session_days": len(lookback_bars),
+                "include_today_bar": include_today_bar,
+                "include_today_after_local_hour": self.include_today_after_local_hour,
+                "local_time_used_for_cutoff": local_now.isoformat(),
                 "latest_history_date": daily_history[-1]["date"] if daily_history else None,
             },
             "frame_count": len(feature_store_frames),

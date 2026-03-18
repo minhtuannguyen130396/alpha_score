@@ -63,14 +63,14 @@ Intraday event log data. Each file is usually stored as `JSON Lines`.
 | `last_volume` | Volume of the most recent match |
 | `total_volume` | Cumulative matched volume |
 | `total_value` | Cumulative matched value |
-| `matched_price` | Matched price, currently equal to `last_price` in the checked data |
+| `matched_price` | Extra matched-price field from the source feed. Downstream pipeline no longer consumes this field because it is inconsistent in current raw data. |
 | `active_buy_volume` | Cumulative active buy volume |
 | `active_sell_volume` | Cumulative active sell volume |
 | `total_buy_sale_volume` | Total buy/sell volume, currently equal to `total_volume` in the checked data |
 
 Notes:
 - In the current dataset:
-- `matched_price = last_price`
+- `matched_price` is not reliable enough to be treated as equivalent to `last_price`
 - `total_buy_sale_volume = total_volume`
 - `active_sell_volume = total_buy_sale_volume - active_buy_volume`
 
@@ -124,7 +124,6 @@ Some field pairs are easy to confuse during mapping:
 |---|---|---|
 | `historical_price.totalVolume` | `updatelastprices.total_volume` | Same general meaning, but different level: end-of-day vs intraday snapshot |
 | `historical_price.totalValue` | `updatelastprices.total_value` | Same general meaning, but different level: end-of-day vs intraday snapshot |
-| `updatelastprices.last_price` | `updatelastprices.matched_price` | Equal in the current dataset |
 | `updatetrades.price` | `updatelastprices.last_price` | Similar meaning, but `price` is per trade while `last_price` is the latest snapshot price |
 | `updatetrades.volume` | `updatelastprices.last_volume` | Similar meaning, but `volume` is per trade while `last_volume` is the latest matched volume |
 | `updatelastprices.total_volume` | `updatelastprices.total_buy_sale_volume` | Equal in the current dataset |

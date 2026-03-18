@@ -191,7 +191,6 @@ class MarketDataDecoder:
             "last_volume": self._to_float(record[3]),
             "deal_volume": self._to_float(record[4]),
             "deal_value": self._to_float(record[5]),
-            "matched_price": self._to_float(record[6]),
             "active_buy_volume": active_buy_volume,
             "active_sell_volume": active_sell_volume,
             "total_buy_sale_volume": total_buy_sale_volume,

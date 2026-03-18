@@ -26,6 +26,19 @@ PHASE3_FOLDER = "phase3_time_alignment_reference_indexing"
 PHASE4_FOLDER = "phase4_book_memory_deep_reconstruction"
 
 
+def _strip_ignored_fields(value: Any) -> Any:
+    if isinstance(value, dict):
+        cleaned: dict[str, Any] = {}
+        for key, nested_value in value.items():
+            if key == "matched_price":
+                continue
+            cleaned[key] = _strip_ignored_fields(nested_value)
+        return cleaned
+    if isinstance(value, list):
+        return [_strip_ignored_fields(item) for item in value]
+    return value
+
+
 class Phase0Layer2InputIntakeProcess:
     def __init__(
         self,
@@ -134,8 +147,8 @@ class Phase0Layer2InputIntakeProcess:
         payload4 = phase4_bundle.payload
         self._validate_dependencies(symbol, trading_date, payload2, payload3, payload4)
 
-        reference_frames = payload3.get("reference_frames") or []
-        deep_book_frames = payload4.get("deep_book_frames") or []
+        reference_frames = _strip_ignored_fields(payload3.get("reference_frames") or [])
+        deep_book_frames = _strip_ignored_fields(payload4.get("deep_book_frames") or [])
         dependency_report = {
             "symbol_match": True,
             "trading_date_match": True,
@@ -145,8 +158,14 @@ class Phase0Layer2InputIntakeProcess:
             "status": "pass",
         }
 
-        daily_context = payload3.get("aligned_sources", {}).get("daily_context")
-        normalized_daily_input = payload2.get("normalized_daily_input")
+        daily_context = _strip_ignored_fields(payload3.get("aligned_sources", {}).get("daily_context"))
+        normalized_daily_input = _strip_ignored_fields(payload2.get("normalized_daily_input"))
+        aligned_sources = _strip_ignored_fields(payload3.get("aligned_sources") or {})
+        latest_memory_levels = _strip_ignored_fields(payload4.get("latest_memory_levels") or [])
+        reconstruction_quality = _strip_ignored_fields(payload4.get("reconstruction_quality") or {})
+        degraded_flags = _strip_ignored_fields(payload3.get("degraded_flags") or payload2.get("degraded_flags") or {})
+        session_filter_local = _strip_ignored_fields(payload2.get("session_filter_local") or {})
+        window_definitions_seconds = _strip_ignored_fields(payload3.get("window_definitions_seconds") or {})
 
         return {
             "bundle_type": BUNDLE_TYPE,
@@ -166,9 +185,9 @@ class Phase0Layer2InputIntakeProcess:
             },
             "dependency_report": dependency_report,
             "validation_status": payload3.get("validation_status") or payload2.get("input_quality", {}).get("validation_status"),
-            "degraded_flags": payload3.get("degraded_flags") or payload2.get("degraded_flags") or {},
-            "session_filter_local": payload2.get("session_filter_local") or {},
-            "window_definitions_seconds": payload3.get("window_definitions_seconds") or {},
+            "degraded_flags": degraded_flags,
+            "session_filter_local": session_filter_local,
+            "window_definitions_seconds": window_definitions_seconds,
             "daily_branch": {
                 "normalized_daily_input": normalized_daily_input,
                 "daily_context": daily_context,
@@ -177,14 +196,14 @@ class Phase0Layer2InputIntakeProcess:
                 "reference_axis_source": payload3.get("reference_axis_source"),
                 "reference_frame_count": payload3.get("reference_frame_count"),
                 "reference_time_summary": payload3.get("reference_time_summary"),
-                "aligned_sources": payload3.get("aligned_sources") or {},
+                "aligned_sources": aligned_sources,
                 "reference_frames": reference_frames,
             },
             "deep_book_branch": {
                 "frame_count": payload4.get("frame_count"),
                 "deep_book_frames": deep_book_frames,
-                "latest_memory_levels": payload4.get("latest_memory_levels") or [],
-                "reconstruction_quality": payload4.get("reconstruction_quality") or {},
+                "latest_memory_levels": latest_memory_levels,
+                "reconstruction_quality": reconstruction_quality,
             },
         }
 

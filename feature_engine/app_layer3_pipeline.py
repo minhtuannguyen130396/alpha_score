@@ -42,6 +42,12 @@ def parse_args() -> argparse.Namespace:
         default=str(default_output_root()),
         help="Root folder for Layer 3 outputs. Defaults to feature_engine/data.",
     )
+    parser.add_argument(
+        "--include-today-after-local-hour",
+        type=int,
+        default=18,
+        help="Include the current trading day's daily bar in daily technical features once local machine time reaches this hour. Default is 18.",
+    )
     return parser.parse_args()
 
 
@@ -74,6 +80,7 @@ class Layer3Pipeline:
         )
         self.phase3 = Phase3FeatureStoreProcess(
             output_root=Path(args.output_root),
+            include_today_after_local_hour=args.include_today_after_local_hour,
             symbols=symbols,
         )
         self.phase4 = Phase4FeatureQualityProcess(

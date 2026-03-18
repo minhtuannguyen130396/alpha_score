@@ -188,14 +188,12 @@ Field chính:
 - `last_volume`
 - `deal_volume`
 - `deal_value`
-- `matched_price`
 - `active_buy_volume`
 - `active_sell_volume`
 - `total_buy_sale_volume`
 
 Quan hệ observed quan trọng:
 
-- `last_price = matched_price`
 - `deal_volume = active_buy_volume + active_sell_volume`
 
 #### G0.3 — Raw order book source
@@ -337,7 +335,6 @@ Output là `normalized_input_bundle`, bên trong chứa tối thiểu các objec
     "event_time_local": "2026-03-13T13:00:10.437000+07:00",
     "ingested_at_utc": "2026-03-13T13:00:10.713148+00:00",
     "last_price": 77.5999984741211,
-    "matched_price": 77.5999984741211,
     "last_volume": 500.0,
     "deal_volume": 5029700.0,
     "deal_value": 388524998656.0,
@@ -392,7 +389,6 @@ Validation theo từng source:
   - `average_price ~= (total_value - putthrough_value) / deal_volume / unit`
   - `prop_net_value = prop_net_deal_value + prop_net_pt_value`
 - Intraday cumulative:
-  - `last_price = matched_price`
   - `deal_volume = active_buy_volume + active_sell_volume`
 - Order book:
   - `bid_levels` có đúng 3 mức
@@ -428,7 +424,6 @@ Output là `validated_input_bundle`.
         "prop_net_value_consistency": "pass"
       },
       "intraday_rules": {
-        "last_price_equals_matched_price": "pass",
         "deal_volume_equals_active_buy_plus_sell": "pass"
       },
       "orderbook_rules": {

@@ -97,8 +97,6 @@ deal_volume
 
 deal_value
 
-matched_price
-
 active_buy_volume
 
 active_sell_volume

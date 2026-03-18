@@ -177,6 +177,14 @@ def output_log_path(output_root: Path, symbol: str, trading_date: str) -> Path:
     return output_root / safe_symbol / LOG_FOLDER / trading_date[:4] / f"{trading_date}.jsonl"
 
 
+def drop_ignored_fields(record: dict[str, Any], source_group: str) -> dict[str, Any]:
+    if source_group != "updatelastprices":
+        return record
+    cleaned = dict(record)
+    cleaned.pop("matched_price", None)
+    return cleaned
+
+
 class Phase0RawSourceIntakeProcess:
     def __init__(
         self,
@@ -336,7 +344,9 @@ class Phase0RawSourceIntakeProcess:
             trading_date = self._extract_record_date(record, source_group, fallback_date)
             if not trading_date:
                 continue
-            records_by_date.setdefault(trading_date, []).append(record)
+            records_by_date.setdefault(trading_date, []).append(
+                drop_ignored_fields(record, source_group)
+            )
 
         return records_by_date
 

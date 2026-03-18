@@ -497,7 +497,6 @@ class Phase1SchemaNormalizationProcess:
             "last_volume": to_float(raw_record.get("last_volume")),
             "deal_volume": to_float(raw_record.get("deal_volume")),
             "deal_value": to_float(raw_record.get("deal_value")),
-            "matched_price": to_float(raw_record.get("matched_price")),
             "active_buy_volume": to_float(raw_record.get("active_buy_volume")),
             "active_sell_volume": to_float(raw_record.get("active_sell_volume")),
             "total_buy_sale_volume": to_float(raw_record.get("total_buy_sale_volume")),

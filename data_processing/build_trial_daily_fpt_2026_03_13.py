@@ -115,7 +115,6 @@ def build_output():
             "last_volume": last_price.get("last_volume"),
             "total_volume": last_price.get("total_volume"),
             "total_value": last_price.get("total_value"),
-            "matched_price": last_price.get("matched_price"),
             "active_buy_volume": last_price.get("active_buy_volume"),
             "active_sell_volume": last_price.get("active_sell_volume"),
             "total_buy_sale_volume": last_price.get("total_buy_sale_volume"),
